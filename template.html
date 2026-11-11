@@ -115,6 +115,8 @@ details .doc h4:first-child{margin-top:4px}
 .rm-today{position:absolute;top:2px;transform:translateX(-50%);font-size:.68rem;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:0 6px;border-radius:4px}
 .rm-line{position:absolute;top:31px;height:2px;background:var(--line)}
 .rm-dot{position:absolute;top:26px;width:12px;height:12px;border-radius:50%;transform:translateX(-50%);border:2px solid var(--surface);box-sizing:content-box}
+.rm-dot.event{border-radius:2px;transform:translateX(-50%) rotate(45deg);outline:2px solid var(--accent)}
+.rm-legend .rm-dot.event{transform:rotate(45deg)}
 .rm-dot.done{background:var(--ok)}.rm-dot.plan{background:var(--info)}.rm-dot.late{background:var(--crit)}
 .rm-label{position:absolute;top:6px;transform:translateX(-50%);font-size:.68rem;white-space:nowrap;color:var(--fg);max-width:180px;overflow:hidden;text-overflow:ellipsis}
 .rm-label.low{top:44px}
@@ -206,6 +208,8 @@ const PRIO = {"高":0,"中":1,"低":2};
 const isOver = t => t.due && t.status !== "完了" && t.due < todayJST();
 const dueHtml = t => t.due ? `<span class="due${isOver(t) ? " over" : ""}">${isOver(t) ? "期限切れ " : ""}${md(t.due)}</span>` : `<span class="due">期限なし</span>`;
 const list = v => Array.isArray(v) ? v : (v ? [v] : []);
+const mlabel = m => m.label || md(m.date);
+const mlabelw = m => m.label || mdw(m.date);
 const roadmapOf = p => list(p.roadmap).filter(m => m && m.date).slice().sort((a,b) => a.date.localeCompare(b.date));
 
 function mdToHtml(src) {
@@ -246,7 +250,7 @@ function miniRoadmap(p) {
   const doneN = rm.filter(m => m.done).length;
   return `<div class="rm-mini">
     <div class="row small"><span>ロードマップ ${doneN}/${rm.length} 達成</span><a class="ext" href="#roadmap">全体を見る</a></div>
-    ${next.length ? `<ul class="list">${next.map(m => `<li><span>${esc(m.title)}</span><span class="due">${mdw(m.date)}</span></li>`).join("")}</ul>` : `<div class="small">今後のマイルストーンはありません</div>`}
+    ${next.length ? `<ul class="list">${next.map(m => `<li><span>${m.type === "event" ? "★ " : ""}${esc(m.title)}</span><span class="due">${esc(mlabelw(m))}</span></li>`).join("")}</ul>` : `<div class="small">今後のマイルストーンはありません</div>`}
   </div>`;
 }
 
@@ -297,7 +301,7 @@ function upcomingFor(name, m, today) {
   }
   for (const p of (state.projects || [])) {
     if (!list(p.owners).includes(name)) continue;
-    for (const r of roadmapOf(p)) if (!r.done && r.date >= today && r.date <= end) items.push({ date: r.date, text: `${p.name}:${r.title}`, kind: "mile" });
+    for (const r of roadmapOf(p)) if (!r.done && r.date >= today && r.date <= end) items.push({ date: r.date, text: `${p.name}:${r.type === "event" ? "★" : ""}${r.title}${r.label ? `(${r.label})` : ""}`, kind: "mile" });
   }
   return items.sort((a,b) => a.date.localeCompare(b.date));
 }
@@ -355,15 +359,15 @@ function renderRoadmap() {
     const rm = roadmapOf(p);
     const ends = [-1e9, -1e9];
     const dots = rm.map(m => {
-      const cls = m.done ? "done" : (m.date < today ? "late" : "plan");
+      const cls = (m.done ? "done" : (m.date < today ? "late" : "plan")) + (m.type === "event" ? " event" : "");
       const cx = x(m.date);
-      let text = `${md(m.date)} ${m.title}`;
+      let text = `${m.type === "event" ? "★" : ""}${mlabel(m)} ${m.title}`;
       const wOf = t => Math.min(180, [...t].length * 11 + 8);
       let lvl = [0, 1].find(l => cx - wOf(text) / 2 > ends[l] + 6);
-      if (lvl === undefined) { text = md(m.date); lvl = [0, 1].find(l => cx - wOf(text) / 2 > ends[l] + 4); }
+      if (lvl === undefined) { text = mlabel(m); lvl = [0, 1].find(l => cx - wOf(text) / 2 > ends[l] + 4); }
       const label = lvl === undefined ? "" : `<span class="rm-label${lvl ? " low" : ""}" style="left:${cx}px">${esc(text)}</span>`;
       if (lvl !== undefined) ends[lvl] = cx + wOf(text) / 2;
-      return `<span class="rm-dot ${cls}" style="left:${cx}px" title="${esc(md(m.date) + " " + m.title)}"></span>${label}`;
+      return `<span class="rm-dot ${cls}" style="left:${cx}px" title="${esc(mlabel(m) + " " + m.title)}"></span>${label}`;
     }).join("");
     const lineFrom = x(rm[0].date), lineTo = x(rm[rm.length - 1].date);
     return `<div class="rm-row"><div class="rm-name"><b>${esc(p.name)}</b><span class="small">${esc(list(p.owners).join("・"))}${p.roadmapAt ? `・${md(p.roadmapAt)}提出` : ""}</span></div>
@@ -373,9 +377,9 @@ function renderRoadmap() {
       <div class="rm-row rm-head"><div class="rm-name"></div><div class="rm-lane" style="width:${width}px">${ticks}<span class="rm-today" style="left:${x(today)}px">今日</span></div></div>
       ${rows}
     </div></div>
-    <div class="rm-legend small"><span><i class="rm-dot done"></i>達成</span><span><i class="rm-dot plan"></i>予定</span><span><i class="rm-dot late"></i>遅れ</span></div>`;
+    <div class="rm-legend small"><span><i class="rm-dot done"></i>達成</span><span><i class="rm-dot plan"></i>予定</span><span><i class="rm-dot late"></i>遅れ</span><span><i class="rm-dot plan event"></i>実施日(★)</span></div>`;
   html += `<div class="grid">${withRm.map(p => `<div class="card"><div class="row"><h3>${esc(p.name)}</h3><span class="small">${esc(list(p.owners).join("・"))}</span></div>
-      <ul class="list">${roadmapOf(p).map(m => `<li><span>${m.done ? "✓ " : ""}${esc(m.title)}</span><span class="due${!m.done && m.date < today ? " over" : ""}">${mdw(m.date)}</span></li>`).join("")}</ul></div>`).join("")}</div>`;
+      <ul class="list">${roadmapOf(p).map(m => `<li><span>${m.done ? "✓ " : ""}${m.type === "event" ? "<b>★ " + esc(m.title) + "</b>" : esc(m.title)}</span><span class="due${!m.done && m.date < today ? " over" : ""}">${esc(mlabelw(m))}</span></li>`).join("")}</ul></div>`).join("")}</div>`;
   el.innerHTML = html;
 }
 
