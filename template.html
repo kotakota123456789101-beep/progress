@@ -123,6 +123,23 @@ details .doc h4:first-child{margin-top:4px}
 .rm-legend{display:flex;gap:16px;flex-wrap:wrap}
 .rm-legend span{display:inline-flex;align-items:center;gap:6px}
 .rm-legend .rm-dot{position:static;transform:none;display:inline-block;width:10px;height:10px}
+.rules{gap:14px}
+.rules-lead{background:var(--accent-soft);border-radius:8px;padding:12px 16px;max-width:72ch}
+.rules-h{font-family:var(--f-display);font-size:1rem;margin:18px 0 2px;letter-spacing:.03em}
+.rules-ul{list-style:disc;padding-left:1.2em;gap:2px}
+.rules-ul li{display:list-item;font-size:.86rem}
+.rules-ul2{margin:0;padding-left:1.2em;display:flex;flex-direction:column;gap:6px;max-width:72ch}
+.rules-ex{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;display:flex;flex-direction:column;gap:4px;max-width:72ch}
+.ex-row{display:flex;gap:10px;align-items:baseline}
+.ex{font-weight:700;width:1.2em;flex:none;text-align:center}
+.ex.ng{color:var(--crit)}.ex.ok{color:var(--ok)}
+.ex-note{padding-left:calc(1.2em + 10px)}
+.tpl{font-family:var(--f-mono);font-size:.78rem;line-height:1.55;background:var(--bg);border-radius:6px;padding:10px 12px;margin:0;white-space:pre-wrap;overflow-wrap:anywhere}
+.table-wrap{overflow-x:auto;max-width:72ch}
+.rules-table{border-collapse:collapse;width:100%;font-size:.86rem;background:var(--surface);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.rules-table th,.rules-table td{text-align:left;padding:8px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.rules-table th{font-size:.78rem;color:var(--muted);font-weight:500;background:var(--bg)}
+.rules-table tr:last-child td{border-bottom:none}
 @media (prefers-reduced-motion:no-preference){.card,.task{transition:border-color .15s}}
 </style>
 
@@ -143,6 +160,7 @@ details .doc h4:first-child{margin-top:4px}
     <a href="#roadmap" data-view="roadmap">ロードマップ</a>
     <a href="#tasks" data-view="tasks">タスク</a>
     <a href="#daily" data-view="daily">日報サマリー</a>
+    <a href="#rules" data-view="rules">ルール</a>
   </nav>
 
   <div id="view-overview" class="view">
@@ -175,6 +193,117 @@ details .doc h4:first-child{margin-top:4px}
         </div>
       </div>
       <div class="board" id="board"><div class="empty">タスクを読み込み中…</div></div>
+    </section>
+  </div>
+
+  <div id="view-rules" class="view" hidden>
+    <section class="rules">
+      <div class="sec-head"><h2>運用ルール</h2><span>迷ったらここを見る</span></div>
+
+      <div class="rules-lead">書くのは3種類だけ。チャンネル(独立チーム/バングラチーム)に決まった形で投稿すると、毎日20時にAIが読み取ってこのページに反映します。</div>
+
+      <h3 class="rules-h">1. 仕事の単位は3つ</h3>
+      <div class="grid rules-units">
+        <div class="card">
+          <div class="row"><h3>プロジェクト</h3><span class="pill s-info">ロードマップ必須</span></div>
+          <div>ゴール(公開・納品・本番など)と期限があるもの。</div>
+          <ul class="list rules-ul"><li>2週間以上続く</li><li>複数人が関わる</li><li>外に出る成果物がある</li></ul>
+          <div class="small">どれか1つに当てはまればプロジェクト</div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>タスク</h3><span class="pill s-ok">一覧に載せる</span></div>
+          <div>半日〜3日で終わる仕事。必ずどこかのプロジェクトに入れる。</div>
+          <ul class="list rules-ul"><li>担当は1人</li><li>終わりが誰にでも分かる</li><li>3日を超えるなら分ける</li></ul>
+        </div>
+        <div class="card">
+          <div class="row"><h3>作業</h3><span class="pill s-idle">一覧に載せない</span></div>
+          <div>数時間で終わるもの。タスクにはせず、日報の「終わったこと」に書くだけ。</div>
+          <ul class="list rules-ul"><li>メール1本、確認1つ</li><li>ちょっとした修正</li></ul>
+        </div>
+      </div>
+
+      <h3 class="rules-h">2. プロジェクトのルール</h3>
+      <ul class="rules-ul2">
+        <li><b>勝手に増やさない。</b>新しく作りたいときは、日報の「新しく頼まれたこと」に書いて中道さんが判断します</li>
+        <li><b>どこにも入らない細かい案件は [Wick]。</b>広告、送金申請、取引先とのやり取りなど。迷ったらWick</li>
+        <li><b>手続き系は関係するプロジェクトへ。</b>インボイスやe-Taxなど。どれにも関係しなければWick</li>
+        <li><b>担当者はロードマップを必ず提出。</b>未提出だと毎晩20時にリマインドが届きます(Wickは対象外)</li>
+      </ul>
+
+      <h3 class="rules-h">3. タスクの書き方</h3>
+      <div class="rules-ex">
+        <div class="ex-row"><span class="ex ng">×</span><span>LP</span></div>
+        <div class="ex-row"><span class="ex ok">○</span><span>LPの初稿を作ってFigmaで共有する</span></div>
+        <div class="ex-note small">「何を・どうする」で書き、終わったかどうかが誰にでも分かる形にする</div>
+      </div>
+      <div class="rules-ex">
+        <div class="ex-row"><span class="ex ng">×</span><span>イベント準備</span></div>
+        <div class="ex-row"><span class="ex ok">○</span><span>会場レイアウト確定/備品の発注/当日の進行表作成</span></div>
+        <div class="ex-note small">3日を超えそうなら分ける</div>
+      </div>
+      <ul class="rules-ul2">
+        <li><b>担当は1人。</b>2人でやるときも主担当を決める</li>
+        <li><b>期限:</b>外部の締め切りは必ず日付で。自分の目安なら「今週中」でもOK</li>
+      </ul>
+
+      <h3 class="rules-h">4. 投稿の書き方</h3>
+      <div class="grid rules-post">
+        <div class="card">
+          <div class="row"><h3>日報</h3><span class="small">毎日1件・20時まで</span></div>
+<pre class="tpl">【日報】11/12　状態:〇〇
+■ 明日の空き:空きあり/少し空き/
+　埋まっている/不在+ひとこと
+■ 直近の予定・不在:11/14 午前不在
+■ 終わったこと
+・[プロジェクト名] 〇〇
+■ 進めていること
+■ 明日やること
+■ 困っていること(なければ「なし」)
+■ 新しく頼まれたこと</pre>
+          <div class="small">各行の頭に [プロジェクト名]。忙しい日は「状態」と「困っていること」だけでもOK</div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>ロードマップ</h3><span class="small">最初と変更時</span></div>
+<pre class="tpl">【ロードマップ】[〇〇フェス]
+★2/14 本番
+2/10 リハーサル
+1月中 物販・プロップス発注
+12月中旬 会場レイアウト確定
+11月中 出演者確定 済</pre>
+          <div class="small">★=本番・実施日、行末の「済」=達成。出し直すと全体が置き換わる</div>
+        </div>
+        <div class="card">
+          <div class="row"><h3>修正</h3><span class="small">いつでも・1行1件</span></div>
+<pre class="tpl">【修正】[何の病気AI] デバッグ → 完了
+【修正】[Wick Music] 図解アイコン 期限 11/15
+【修正】[GrameenWick] JICA資料 担当 佐藤
+【修正】[The CREATORS] ロードマップ 11/20 達成</pre>
+          <div class="small">状態・期限・担当・優先度・メモ・削除を直せる</div>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table class="rules-table">
+          <thead><tr><th>時期の書き方</th><th>意味</th></tr></thead>
+          <tbody>
+            <tr><td>2/14</td><td>その日</td></tr>
+            <tr><td>11/27〜28</td><td>期間(初日に表示)</td></tr>
+            <tr><td>12月中</td><td>その月のうちに(月末に表示)</td></tr>
+            <tr><td>12月上旬・中旬・下旬</td><td>10日・20日・月末まで</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 class="rules-h">5. 1日の流れ</h3>
+      <div class="table-wrap">
+        <table class="rules-table">
+          <thead><tr><th>時刻(日本時間)</th><th>何が起きるか</th></tr></thead>
+          <tbody>
+            <tr><td class="due">17:49</td><td>日報がまだの人へ、チャンネルでやさしくリマインド</td></tr>
+            <tr><td class="due">20:00</td><td>日報・修正・ロードマップを読み取り、このページを更新。未提出の人と、ロードマップ未提出の担当者へリマインド</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   </div>
 
@@ -429,7 +558,7 @@ function renderDoc() {
 }
 
 /* ---------- ルーティング ---------- */
-const VIEWS = ["overview","roadmap","tasks","daily"];
+const VIEWS = ["overview","roadmap","tasks","daily","rules"];
 function route() {
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
   VIEWS.forEach(x => { $("view-" + x).hidden = x !== v; });
