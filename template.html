@@ -243,6 +243,7 @@ function renderAlert() {
 
 function miniRoadmap(p) {
   const rm = roadmapOf(p);
+  if (!rm.length && p.noRoadmap) return "";
   const owners = list(p.owners).join("・");
   if (!rm.length) return `<div class="rm-missing"><span class="pill s-crit">ロードマップ未提出</span><span class="small">${owners ? esc(owners) + "さんが提出" : "担当者が提出"}</span></div>`;
   const today = todayJST();
@@ -336,7 +337,7 @@ function renderMembers() {
 function renderRoadmap() {
   const el = $("roadmap");
   if (!state.projects) return;
-  const ps = [...state.projects].filter(p => p.status !== "動きなし" || roadmapOf(p).length).sort((a,b) => String(a.name).localeCompare(b.name));
+  const ps = [...state.projects].filter(p => (p.status !== "動きなし" && !p.noRoadmap) || roadmapOf(p).length).sort((a,b) => String(a.name).localeCompare(b.name));
   const missing = ps.filter(p => !roadmapOf(p).length);
   const withRm = ps.filter(p => roadmapOf(p).length);
   const today = todayJST();
