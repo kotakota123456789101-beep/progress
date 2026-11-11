@@ -25,6 +25,7 @@ const data = {
   tasks: readColl("tasks"),
   projects: readColl("projects"),
   days: readColl("days"),
+  members: readColl("members"),
 };
 if (!data.tasks.length && !data.projects.length && !data.days.length) {
   console.error("データが空です。書き出しを確認してください"); process.exit(1);
@@ -58,4 +59,4 @@ execFileSync("npx", [
 ], { stdio: "inherit", cwd: here, env: process.env });
 
 fs.rmSync(buildDir, { recursive: true, force: true });
-console.log(`暗号化済み index.html を出力しました(tasks ${data.tasks.length} / projects ${data.projects.length} / days ${data.days.length})`);
+console.log(`暗号化済み index.html を出力しました(tasks ${data.tasks.length} / projects ${data.projects.length} / days ${data.days.length} / members ${data.members.length})`);

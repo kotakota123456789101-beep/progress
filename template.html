@@ -100,6 +100,27 @@ a.ext{color:var(--accent);font-size:.8rem}
 details summary{cursor:pointer;color:var(--accent);font-size:.82rem}
 details .doc{border:none;padding:4px 0 0;max-width:none}
 details .doc h4:first-child{margin-top:4px}
+.avail{display:flex;flex-direction:column;gap:2px;padding:8px 10px;border-radius:6px;background:var(--bg)}
+.rm-mini{display:flex;flex-direction:column;gap:4px;border-top:1px solid var(--line);padding-top:8px}
+.rm-missing{display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:8px}
+.rm-wrap{overflow-x:auto;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 0}
+.rm-grid{display:flex;flex-direction:column;min-width:max-content}
+.rm-row{display:flex;align-items:stretch;border-bottom:1px solid var(--line)}
+.rm-row:last-child{border-bottom:none}
+.rm-name{position:sticky;left:0;z-index:2;background:var(--surface);width:150px;flex:none;padding:8px 12px;display:flex;flex-direction:column;justify-content:center;border-right:1px solid var(--line)}
+.rm-name b{font-size:.85rem;overflow-wrap:anywhere}
+.rm-lane{position:relative;height:64px;margin:0 24px;flex:none}
+.rm-head .rm-lane{height:28px}
+.rm-tick{position:absolute;top:6px;transform:translateX(-50%);font-family:var(--f-mono);font-size:.7rem;color:var(--muted);white-space:nowrap}
+.rm-today{position:absolute;top:2px;transform:translateX(-50%);font-size:.68rem;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:0 6px;border-radius:4px}
+.rm-line{position:absolute;top:31px;height:2px;background:var(--line)}
+.rm-dot{position:absolute;top:26px;width:12px;height:12px;border-radius:50%;transform:translateX(-50%);border:2px solid var(--surface);box-sizing:content-box}
+.rm-dot.done{background:var(--ok)}.rm-dot.plan{background:var(--info)}.rm-dot.late{background:var(--crit)}
+.rm-label{position:absolute;top:6px;transform:translateX(-50%);font-size:.68rem;white-space:nowrap;color:var(--fg);max-width:180px;overflow:hidden;text-overflow:ellipsis}
+.rm-label.low{top:44px}
+.rm-legend{display:flex;gap:16px;flex-wrap:wrap}
+.rm-legend span{display:inline-flex;align-items:center;gap:6px}
+.rm-legend .rm-dot{position:static;transform:none;display:inline-block;width:10px;height:10px}
 @media (prefers-reduced-motion:no-preference){.card,.task{transition:border-color .15s}}
 </style>
 
@@ -117,6 +138,7 @@ details .doc h4:first-child{margin-top:4px}
 
   <nav aria-label="表示切り替え">
     <a href="#overview" data-view="overview">概要</a>
+    <a href="#roadmap" data-view="roadmap">ロードマップ</a>
     <a href="#tasks" data-view="tasks">タスク</a>
     <a href="#daily" data-view="daily">日報サマリー</a>
   </nav>
@@ -127,8 +149,15 @@ details .doc h4:first-child{margin-top:4px}
       <div class="grid" id="projects"><div class="empty">プロジェクトを読み込み中…</div></div>
     </section>
     <section style="margin-top:24px">
-      <div class="sec-head"><h2>メンバー</h2><span>未完了タスクの内訳と今週やること</span></div>
+      <div class="sec-head"><h2>メンバー</h2><span>明日の空き具合と直近7日の予定・期限</span></div>
       <div class="grid" id="members"><div class="empty">メンバーを読み込み中…</div></div>
+    </section>
+  </div>
+
+  <div id="view-roadmap" class="view" hidden>
+    <section>
+      <div class="sec-head"><h2>ロードマップ</h2><span>各プロジェクトの担当者が提出した節目</span></div>
+      <div id="roadmap" style="display:flex;flex-direction:column;gap:16px"><div class="empty">読み込み中…</div></div>
     </section>
   </div>
 
@@ -159,18 +188,25 @@ details .doc h4:first-child{margin-top:4px}
 </div>
 
 <script>
-const state = { tasks: null, projects: null, days: null, selDay: null };
+const state = { tasks: null, projects: null, days: null, members: null, selDay: null };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const todayJST = () => new Date(Date.now() + 9*3600e3).toISOString().slice(0,10);
+const addDays = (d, n) => { const x = new Date(d + "T00:00:00Z"); x.setUTCDate(x.getUTCDate() + n); return x.toISOString().slice(0,10); };
+const dayDiff = (a, b) => Math.round((new Date(b + "T00:00:00Z") - new Date(a + "T00:00:00Z")) / 864e5);
+const WD = ["日","月","火","水","木","金","土"];
+const wd = d => WD[new Date(d + "T00:00:00Z").getUTCDay()];
 const md = d => d ? `${+d.slice(5,7)}/${+d.slice(8,10)}` : "";
+const mdw = d => d ? `${md(d)}(${wd(d)})` : "";
 const PSTAT = {"要注意":"s-crit","情報不足":"s-warn","順調":"s-ok","動きなし":"s-idle"};
 const TSTAT = ["ブロック中","進行中","未着手","完了"];
 const TCLS = {"ブロック中":"s-crit","進行中":"s-info","未着手":"s-idle","完了":"s-ok"};
+const AVAIL = {"空きあり":"s-ok","少し空き":"s-warn","埋まっている":"s-crit","不在":"s-idle"};
 const PRIO = {"高":0,"中":1,"低":2};
 const isOver = t => t.due && t.status !== "完了" && t.due < todayJST();
 const dueHtml = t => t.due ? `<span class="due${isOver(t) ? " over" : ""}">${isOver(t) ? "期限切れ " : ""}${md(t.due)}</span>` : `<span class="due">期限なし</span>`;
 const list = v => Array.isArray(v) ? v : (v ? [v] : []);
+const roadmapOf = p => list(p.roadmap).filter(m => m && m.date).slice().sort((a,b) => a.date.localeCompare(b.date));
 
 function mdToHtml(src) {
   const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>");
@@ -201,6 +237,19 @@ function renderAlert() {
     <span class="sub">日報提出 ${esc(d.sub || "—")}</span>`;
 }
 
+function miniRoadmap(p) {
+  const rm = roadmapOf(p);
+  const owners = list(p.owners).join("・");
+  if (!rm.length) return `<div class="rm-missing"><span class="pill s-crit">ロードマップ未提出</span><span class="small">${owners ? esc(owners) + "さんが提出" : "担当者が提出"}</span></div>`;
+  const today = todayJST();
+  const next = rm.filter(m => !m.done && m.date >= today).slice(0, 3);
+  const doneN = rm.filter(m => m.done).length;
+  return `<div class="rm-mini">
+    <div class="row small"><span>ロードマップ ${doneN}/${rm.length} 達成</span><a class="ext" href="#roadmap">全体を見る</a></div>
+    ${next.length ? `<ul class="list">${next.map(m => `<li><span>${esc(m.title)}</span><span class="due">${mdw(m.date)}</span></li>`).join("")}</ul>` : `<div class="small">今後のマイルストーンはありません</div>`}
+  </div>`;
+}
+
 function renderProjects() {
   const el = $("projects");
   if (!state.projects) return;
@@ -218,6 +267,7 @@ function renderProjects() {
       <div>${esc(p.summary || "")}</div>
       ${state.tasks ? `<div class="bar" aria-label="タスクの内訳">${segs}</div>
       <div class="counts"><span><b>${n("完了")}</b>完了</span><span><b>${n("進行中")}</b>進行中</span><span><b>${n("ブロック中")}</b>ブロック</span><span><b>${n("未着手")}</b>未着手</span></div>` : ""}
+      ${miniRoadmap(p)}
       <div class="row small"><span>担当 ${esc(list(p.owners).join("・") || "—")}</span><span>次の期限 <span class="due">${p.due ? md(p.due) : "未定"}</span></span></div>
       ${p.body ? `<details><summary>現状・リスク・経過を見る</summary><div class="doc">${mdToHtml(p.body)}</div></details>` : ""}
     </div>`;
@@ -229,23 +279,104 @@ function sortTask(a,b) {
   return ad.localeCompare(bd) || (PRIO[a.prio] ?? 3) - (PRIO[b.prio] ?? 3);
 }
 
+function memberOf(name) { return (state.members || []).find(m => m.name === name) || null; }
+
+function availHtml(m, tomorrow) {
+  if (!m || m.tomorrowDate !== tomorrow || !m.tomorrow) return `<span class="pill s-idle">未報告</span>`;
+  return `<span class="pill ${AVAIL[m.tomorrow] || "s-idle"}">${esc(m.tomorrow)}</span>`;
+}
+
+function upcomingFor(name, m, today) {
+  const end = addDays(today, 7);
+  const items = [];
+  for (const a of list(m && m.schedule)) {
+    if (a && a.date && a.date >= today && a.date <= end) items.push({ date: a.date, text: a.note || "予定", kind: "away" });
+  }
+  for (const t of (state.tasks || [])) {
+    if (t.owner === name && t.status !== "完了" && t.due && t.due <= end) items.push({ date: t.due, text: t.name, kind: t.due < today ? "over" : "due" });
+  }
+  for (const p of (state.projects || [])) {
+    if (!list(p.owners).includes(name)) continue;
+    for (const r of roadmapOf(p)) if (!r.done && r.date >= today && r.date <= end) items.push({ date: r.date, text: `${p.name}:${r.title}`, kind: "mile" });
+  }
+  return items.sort((a,b) => a.date.localeCompare(b.date));
+}
+
 function renderMembers() {
   const el = $("members");
   if (!state.tasks) return;
-  const owners = [...new Set(state.tasks.map(t => t.owner).filter(Boolean))].sort();
-  if (!owners.length) { el.innerHTML = `<div class="empty">担当者のついたタスクはまだありません</div>`; return; }
-  el.innerHTML = owners.map(o => {
+  const names = [...new Set([...(state.members || []).map(m => m.name), ...state.tasks.map(t => t.owner)].filter(Boolean))].sort();
+  if (!names.length) { el.innerHTML = `<div class="empty">メンバーはまだいません</div>`; return; }
+  const today = todayJST(), tomorrow = addDays(today, 1);
+  const KIND = { away: ["予定", "s-idle"], due: ["期限", "s-info"], over: ["期限切れ", "s-crit"], mile: ["節目", "s-warn"] };
+  el.innerHTML = names.map(o => {
+    const m = memberOf(o);
     const ts = state.tasks.filter(t => t.owner === o && t.status !== "完了");
     const c = s => ts.filter(t => t.status === s).length;
-    const week = ts.filter(t => t.week).sort(sortTask);
-    const over = ts.filter(isOver).length;
+    const up = upcomingFor(o, m, today);
+    const stale = m && m.reportDate && dayDiff(m.reportDate, today) >= 2;
     return `<div class="card">
       <div class="row"><h3>${esc(o)}</h3>${c("ブロック中") ? `<span class="pill s-crit">ブロック ${c("ブロック中")}</span>` : `<span class="pill s-ok">止まりなし</span>`}</div>
-      <div class="counts"><span><b>${ts.length}</b>未完了</span><span><b>${c("進行中")}</b>進行中</span><span><b>${c("未着手")}</b>未着手</span>${over ? `<span style="color:var(--crit)"><b style="color:var(--crit)">${over}</b>期限切れ</span>` : ""}</div>
-      <div class="small">今週やること</div>
-      ${week.length ? `<ul class="list">${week.map(t => `<li><span>${esc(t.name)}</span>${dueHtml(t)}</li>`).join("")}</ul>` : `<div class="empty" style="padding:0">なし</div>`}
+      <div class="avail">
+        <div class="row"><span class="small">明日 ${mdw(tomorrow)}</span>${availHtml(m, tomorrow)}</div>
+        ${m && m.tomorrowDate === tomorrow && m.tomorrowNote ? `<div class="small">${esc(m.tomorrowNote)}</div>` : ""}
+        <div class="small">状態:${esc((m && m.state) || "—")}${m && m.reportDate ? `(${md(m.reportDate)}の日報${stale ? "・古い" : ""})` : ""}</div>
+      </div>
+      <div class="counts"><span><b>${ts.length}</b>未完了</span><span><b>${c("進行中")}</b>進行中</span><span><b>${c("未着手")}</b>未着手</span></div>
+      <div class="small">直近7日</div>
+      ${up.length ? `<ul class="list">${up.map(i => `<li><span><span class="pill ${KIND[i.kind][1]}" style="padding:0 7px;margin-right:6px">${KIND[i.kind][0]}</span>${esc(i.text)}</span><span class="due${i.kind === "over" ? " over" : ""}">${mdw(i.date)}</span></li>`).join("")}</ul>` : `<div class="empty" style="padding:0">予定・期限なし</div>`}
     </div>`;
   }).join("");
+}
+
+function renderRoadmap() {
+  const el = $("roadmap");
+  if (!state.projects) return;
+  const ps = [...state.projects].filter(p => p.status !== "動きなし" || roadmapOf(p).length).sort((a,b) => String(a.name).localeCompare(b.name));
+  const missing = ps.filter(p => !roadmapOf(p).length);
+  const withRm = ps.filter(p => roadmapOf(p).length);
+  const today = todayJST();
+  let html = "";
+  if (missing.length) {
+    html += `<div class="notice err"><b>ロードマップ未提出</b>:${missing.map(p => `${esc(p.name)}(${esc(list(p.owners).join("・") || "担当未定")})`).join("、")}<br><span class="small">Teamsに「【ロードマップ】[プロジェクト名]」で提出すると、その日の20時に反映されます。</span></div>`;
+  }
+  if (!withRm.length) { el.innerHTML = html || `<div class="empty">プロジェクトはまだありません</div>`; return; }
+  const all = withRm.flatMap(p => roadmapOf(p).map(m => m.date));
+  let start = addDays(today, -7), endD = addDays(today, 56);
+  const maxD = all.reduce((a,b) => a > b ? a : b, endD);
+  const minD = all.reduce((a,b) => a < b ? a : b, start);
+  if (minD < start) start = minD < addDays(today, -60) ? addDays(today, -60) : minD;
+  endD = maxD > addDays(today, 180) ? addDays(today, 180) : addDays(maxD, 7);
+  const span = dayDiff(start, endD), px = 14, width = span * px;
+  const x = d => Math.max(0, Math.min(span, dayDiff(start, d))) * px;
+  let ticks = "";
+  for (let d = start; d <= endD; d = addDays(d, 7)) ticks += `<span class="rm-tick" style="left:${x(d)}px">${md(d)}</span>`;
+  const rows = withRm.map(p => {
+    const rm = roadmapOf(p);
+    const ends = [-1e9, -1e9];
+    const dots = rm.map(m => {
+      const cls = m.done ? "done" : (m.date < today ? "late" : "plan");
+      const cx = x(m.date);
+      let text = `${md(m.date)} ${m.title}`;
+      const wOf = t => Math.min(180, [...t].length * 11 + 8);
+      let lvl = [0, 1].find(l => cx - wOf(text) / 2 > ends[l] + 6);
+      if (lvl === undefined) { text = md(m.date); lvl = [0, 1].find(l => cx - wOf(text) / 2 > ends[l] + 4); }
+      const label = lvl === undefined ? "" : `<span class="rm-label${lvl ? " low" : ""}" style="left:${cx}px">${esc(text)}</span>`;
+      if (lvl !== undefined) ends[lvl] = cx + wOf(text) / 2;
+      return `<span class="rm-dot ${cls}" style="left:${cx}px" title="${esc(md(m.date) + " " + m.title)}"></span>${label}`;
+    }).join("");
+    const lineFrom = x(rm[0].date), lineTo = x(rm[rm.length - 1].date);
+    return `<div class="rm-row"><div class="rm-name"><b>${esc(p.name)}</b><span class="small">${esc(list(p.owners).join("・"))}${p.roadmapAt ? `・${md(p.roadmapAt)}提出` : ""}</span></div>
+      <div class="rm-lane" style="width:${width}px"><span class="rm-line" style="left:${lineFrom}px;width:${Math.max(0, lineTo - lineFrom)}px"></span>${dots}</div></div>`;
+  }).join("");
+  html += `<div class="rm-wrap"><div class="rm-grid" style="--w:${width}px">
+      <div class="rm-row rm-head"><div class="rm-name"></div><div class="rm-lane" style="width:${width}px">${ticks}<span class="rm-today" style="left:${x(today)}px">今日</span></div></div>
+      ${rows}
+    </div></div>
+    <div class="rm-legend small"><span><i class="rm-dot done"></i>達成</span><span><i class="rm-dot plan"></i>予定</span><span><i class="rm-dot late"></i>遅れ</span></div>`;
+  html += `<div class="grid">${withRm.map(p => `<div class="card"><div class="row"><h3>${esc(p.name)}</h3><span class="small">${esc(list(p.owners).join("・"))}</span></div>
+      <ul class="list">${roadmapOf(p).map(m => `<li><span>${m.done ? "✓ " : ""}${esc(m.title)}</span><span class="due${!m.done && m.date < today ? " over" : ""}">${mdw(m.date)}</span></li>`).join("")}</ul></div>`).join("")}</div>`;
+  el.innerHTML = html;
 }
 
 function fillFilters() {
@@ -293,7 +424,7 @@ function renderDoc() {
 }
 
 /* ---------- ルーティング ---------- */
-const VIEWS = ["overview","tasks","daily"];
+const VIEWS = ["overview","roadmap","tasks","daily"];
 function route() {
   const v = VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
   VIEWS.forEach(x => { $("view-" + x).hidden = x !== v; });
@@ -308,6 +439,7 @@ $("days").addEventListener("click", e => {
   document.querySelectorAll(".day").forEach(x => x.setAttribute("aria-pressed", x === b));
   renderDoc();
 });
+function renderAll() { fillFilters(); renderAlert(); renderProjects(); renderMembers(); renderRoadmap(); renderBoard(); renderDays(); }
 
 /* ---------- データ(ビルド時に埋め込み) ---------- */
 const DATA = /*__DATA__*/null;
@@ -315,10 +447,11 @@ const DATA = /*__DATA__*/null;
   if (!DATA) { $("updated").textContent = "データがありません"; return; }
   state.tasks = DATA.tasks || [];
   state.projects = DATA.projects || [];
+  state.members = DATA.members || [];
   state.days = (DATA.days || []).slice().sort((a,b) => String(b.date).localeCompare(String(a.date)));
   const d = new Date(new Date(DATA.builtAt).getTime() + 9*3600e3);
   $("updated").textContent = isNaN(d) ? "" : `最終更新 ${d.getUTCMonth()+1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2,"0")}:${String(d.getUTCMinutes()).padStart(2,"0")}`;
-  fillFilters(); renderAlert(); renderProjects(); renderMembers(); renderBoard(); renderDays();
+  renderAll();
 })();
 </script>
 </body>
